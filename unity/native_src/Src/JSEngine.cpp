@@ -712,6 +712,7 @@ namespace puerts
 
         if (Inspector != nullptr)
         {
+            delete InspectorChannel;
             delete Inspector;
             Inspector = nullptr;
         }
