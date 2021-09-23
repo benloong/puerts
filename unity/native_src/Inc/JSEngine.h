@@ -156,6 +156,10 @@ public:
 
     PUERTS_EXPORT_FOR_UT void LogicTick();
 
+    void SetInspectorCallback(const v8::FunctionCallbackInfo<v8::Value> &Info);
+
+    void DispatchProtocolMessage(const v8::FunctionCallbackInfo<v8::Value> &Info);
+
     v8::Isolate* MainIsolate;
 
     std::vector<char> StrBuffer;
@@ -210,6 +214,8 @@ private:
 
     V8Inspector* Inspector;
 
+    V8InspectorChannel* InspectorChannel;
+    v8::UniquePersistent<v8::Function> InspectorMessageHandler;
 private:
     v8::Local<v8::FunctionTemplate> ToTemplate(v8::Isolate* Isolate, bool IsStatic, CSharpFunctionCallback Callback, int64_t Data);
 };
