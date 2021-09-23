@@ -10,6 +10,7 @@
 #include <memory>
 #include "PromiseRejectCallback.hpp"
 #include <stdarg.h>
+template <typename T> inline void __USE(T&&) {}
 
 namespace puerts
 {
@@ -195,6 +196,8 @@ namespace puerts
     {
         GeneralDestructor = nullptr;
         Inspector = nullptr;
+        InspectorChannel = nullptr;
+        InspectorMessageHandler.Reset();
 #if WITH_NODEJS
         JSEngineWithNode();
 #else
@@ -204,6 +207,11 @@ namespace puerts
 
     JSEngine::~JSEngine()
     {
+        InspectorMessageHandler.Reset();
+        if (InspectorChannel) {
+            delete InspectorChannel;
+            InspectorChannel = nullptr;
+        }
         if (Inspector)
         {
             delete Inspector;
@@ -653,6 +661,20 @@ namespace puerts
         if (Inspector == nullptr)
         {
             Inspector = CreateV8Inspector(Port, &Context);
+
+            auto This = v8::External::New(Isolate, this);
+            v8::Local<v8::Object> Global = Context->Global();
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsSetInspectorCallback"), v8::FunctionTemplate::New(Isolate, [](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            {
+                auto Self = static_cast<JSEngine*>((v8::Local<v8::External>::Cast(Info.Data()))->Value());
+                Self->SetInspectorCallback(Info);
+            }, This)->GetFunction(Context).ToLocalChecked()).Check();
+
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsDispatchProtocolMessage"), v8::FunctionTemplate::New(Isolate, [](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            {
+                auto Self = static_cast<JSEngine*>((v8::Local<v8::External>::Cast(Info.Data()))->Value());
+                Self->DispatchProtocolMessage(Info);
+            }, This)->GetFunction(Context).ToLocalChecked()).Check();
         }
     }
 
@@ -664,6 +686,12 @@ namespace puerts
         v8::Local<v8::Context> Context = ResultInfo.Context.Get(Isolate);
         v8::Context::Scope ContextScope(Context);
 
+        InspectorMessageHandler.Reset();
+        if (InspectorChannel != nullptr)
+        {
+            delete InspectorChannel;
+            InspectorChannel = nullptr;
+        }
         if (Inspector != nullptr)
         {
             delete Inspector;
@@ -671,6 +699,62 @@ namespace puerts
         }
     }
 
+    void JSEngine::SetInspectorCallback(const v8::FunctionCallbackInfo<v8::Value> &Info)
+    {
+#ifndef WITH_QUICKJS
+        v8::Isolate* Isolate = Info.GetIsolate();
+        v8::Isolate::Scope Isolatescope(Isolate);
+        v8::HandleScope HandleScope(Isolate);
+        v8::Local<v8::Context> Context = Isolate->GetCurrentContext();
+        v8::Context::Scope ContextScope(Context);
+
+        if (!Inspector) return;
+
+        if (!InspectorChannel)
+        {
+            InspectorChannel = Inspector->CreateV8InspectorChannel();
+            InspectorChannel->OnMessage([this](std::string Message)
+                {
+                    v8::Isolate::Scope IsolatescopeObject(MainIsolate);
+                    v8::HandleScope HandleScopeObject(MainIsolate);
+                    v8::Local<v8::Context> ContextInner = ResultInfo.Context.Get(MainIsolate);
+                    v8::Context::Scope ContextScopeObject(ContextInner);
+
+                    auto Handler = InspectorMessageHandler.Get(MainIsolate);
+
+                    v8::Local<v8::Value > Args[] = { FV8Utils::V8String(MainIsolate, Message.c_str()) };
+
+                    v8::TryCatch TryCatch(MainIsolate);
+                    __USE(Handler->Call(ContextInner, ContextInner->Global(), 1, Args));
+                    if (TryCatch.HasCaught())
+                    {
+                        LastExceptionInfo = FV8Utils::ExceptionToString(MainIsolate, TryCatch);
+                    }
+                });
+        }
+
+        InspectorMessageHandler.Reset(Isolate, v8::Local<v8::Function>::Cast(Info[0]));
+#endif // !WITH_QUICKJS
+        }
+
+    void JSEngine::DispatchProtocolMessage(const v8::FunctionCallbackInfo<v8::Value> &Info)
+    {
+#ifndef WITH_QUICKJS
+        v8::Isolate* Isolate = Info.GetIsolate();
+        v8::Isolate::Scope Isolatescope(Isolate);
+        v8::HandleScope HandleScope(Isolate);
+        v8::Local<v8::Context> Context = Isolate->GetCurrentContext();
+        v8::Context::Scope ContextScope(Context);
+
+        // CHECK_V8_ARGS(String);
+
+        if (InspectorChannel)
+        {
+            v8::String::Utf8Value utf8(Isolate, Info[0]);
+            InspectorChannel->DispatchProtocolMessage(*utf8);
+        }
+#endif // !WITH_QUICKJS
+    }
     void JSEngine::LogicTick()
     {
 #if WITH_NODEJS
