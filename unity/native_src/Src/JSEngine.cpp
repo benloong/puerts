@@ -690,15 +690,15 @@ namespace puerts
             Inspector = CreateV8Inspector(Port, &Context);
 
             v8::Local<v8::Object> Global = Context->Global();
-            Global->Set(Context, FV8Utils::ToV8String(Isolate, "__tgjsSetInspectorCallback"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsSetInspectorCallback"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
             {
                 this->SetInspectorCallback(Info);
-            }, This)->GetFunction(Context).ToLocalChecked()).Check();
+            })->GetFunction(Context).ToLocalChecked()).Check();
 
-            Global->Set(Context, FV8Utils::ToV8String(Isolate, "__tgjsDispatchProtocolMessage"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsDispatchProtocolMessage"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
             {
                 this->DispatchProtocolMessage(Info);
-            }, This)->GetFunction(Context).ToLocalChecked()).Check();
+            })->GetFunction(Context).ToLocalChecked()).Check();
         }
     }
 
@@ -743,13 +743,13 @@ namespace puerts
 
                     auto Handler = InspectorMessageHandler.Get(MainIsolate);
 
-                    v8::Local<v8::Value > Args[] = { FV8Utils::ToV8String(MainIsolate, Message.c_str()) };
+                    v8::Local<v8::Value > Args[] = { FV8Utils::V8String(MainIsolate, Message.c_str()) };
 
                     v8::TryCatch TryCatch(MainIsolate);
                     __USE(Handler->Call(ContextInner, ContextInner->Global(), 1, Args));
                     if (TryCatch.HasCaught())
                     {
-                        LastExceptionInfo = FV8Utils::ExceptionToString(Isolate, TryCatch);
+                        LastExceptionInfo = FV8Utils::ExceptionToString(MainIsolate, TryCatch);
                     }
                 });
         }
@@ -771,8 +771,8 @@ namespace puerts
 
         if (InspectorChannel)
         {
-            FString Message = FV8Utils::ToFString(Isolate, Info[0]);
-            InspectorChannel->DispatchProtocolMessage(TCHAR_TO_UTF8(*Message));
+            v8::String::Utf8Value utf8(Isolate, Info[0]);
+            InspectorChannel->DispatchProtocolMessage(*Message);
         }
 #endif // !WITH_QUICKJS
     }

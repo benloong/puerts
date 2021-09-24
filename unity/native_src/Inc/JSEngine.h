@@ -214,6 +214,7 @@ private:
 
     V8Inspector* Inspector;
     V8InspectorChannel* InspectorChannel;
+    v8::UniquePersistent<v8::Function> InspectorMessageHandler;
 private:
     v8::Local<v8::FunctionTemplate> ToTemplate(v8::Isolate* Isolate, bool IsStatic, CSharpFunctionCallback Callback, int64_t Data);
 };
