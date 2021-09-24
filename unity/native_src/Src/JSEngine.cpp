@@ -689,16 +689,19 @@ namespace puerts
         {
             Inspector = CreateV8Inspector(Port, &Context);
 
+            auto This = v8::External::New(Isolate, this);
             v8::Local<v8::Object> Global = Context->Global();
-            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsSetInspectorCallback"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsSetInspectorCallback"), v8::FunctionTemplate::New(Isolate, [](const v8::FunctionCallbackInfo<v8::Value>& Info)
             {
-                this->SetInspectorCallback(Info);
-            })->GetFunction(Context).ToLocalChecked()).Check();
+                auto Self = static_cast<JSEngine*>((v8::Local<v8::External>::Cast(Info.Data()))->Value());
+                Self->SetInspectorCallback(Info);
+            }, This)->GetFunction(Context).ToLocalChecked()).Check();
 
-            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsDispatchProtocolMessage"), v8::FunctionTemplate::New(Isolate, [this](const v8::FunctionCallbackInfo<v8::Value>& Info)
+            Global->Set(Context, FV8Utils::V8String(Isolate, "__tgjsDispatchProtocolMessage"), v8::FunctionTemplate::New(Isolate, [](const v8::FunctionCallbackInfo<v8::Value>& Info)
             {
-                this->DispatchProtocolMessage(Info);
-            })->GetFunction(Context).ToLocalChecked()).Check();
+                auto Self = static_cast<JSEngine*>((v8::Local<v8::External>::Cast(Info.Data()))->Value());
+                Self->DispatchProtocolMessage(Info);
+            }, This)->GetFunction(Context).ToLocalChecked()).Check();
         }
     }
 
@@ -772,7 +775,7 @@ namespace puerts
         if (InspectorChannel)
         {
             v8::String::Utf8Value utf8(Isolate, Info[0]);
-            InspectorChannel->DispatchProtocolMessage(*Message);
+            InspectorChannel->DispatchProtocolMessage(*utf8);
         }
 #endif // !WITH_QUICKJS
     }
