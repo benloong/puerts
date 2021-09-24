@@ -215,6 +215,11 @@ namespace puerts
 
     JSEngine::~JSEngine()
     {
+        InspectorMessageHandler.Reset();
+        if (InspectorChannel) {
+            delete InspectorChannel;
+            InspectorChannel = nullptr;
+        }
         if (Inspector)
         {
             delete Inspector;
@@ -712,10 +717,14 @@ namespace puerts
         v8::HandleScope HandleScope(Isolate);
         v8::Local<v8::Context> Context = ResultInfo.Context.Get(Isolate);
         v8::Context::Scope ContextScope(Context);
-
-        if (Inspector != nullptr)
+        InspectorMessageHandler.Reset();
+        if (InspectorChannel != nullptr)
         {
             delete InspectorChannel;
+            InspectorChannel = nullptr;
+        }
+        if (Inspector != nullptr)
+        {
             delete Inspector;
             Inspector = nullptr;
         }
