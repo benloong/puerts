@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Tencent is pleased to support the open source community by making Puerts available.
 * Copyright (C) 2020 THL A29 Limited, a Tencent company.  All rights reserved.
 * Puerts is licensed under the BSD 3-Clause License, except for the third-party components listed in the file 'LICENSE' which may be subject to their corresponding license terms.
@@ -201,6 +201,8 @@ namespace puerts
     {
         GeneralDestructor = nullptr;
         Inspector = nullptr;
+        InspectorChannel = nullptr;
+        InspectorMessageHandler.Reset();
 #if WITH_NODEJS
         this->withNode = withNode;
         JSEngineWithNode();
@@ -739,6 +741,7 @@ namespace puerts
         v8::Local<v8::Context> Context = Isolate->GetCurrentContext();
         v8::Context::Scope ContextScope(Context);
 
+//        PLog(Warning, "SetInspectorCallback ---");
         if (!Inspector) return;
 
         // CHECK_V8_ARGS(Function);
@@ -746,6 +749,7 @@ namespace puerts
         if (!InspectorChannel)
         {
             InspectorChannel = Inspector->CreateV8InspectorChannel();
+//            PLog(Warning, "CreateV8InspectorChannel ---");
             InspectorChannel->OnMessage([this](std::string Message)
                 {
                     v8::Isolate::Scope IsolatescopeObject(MainIsolate);
@@ -755,6 +759,7 @@ namespace puerts
 
                     auto Handler = InspectorMessageHandler.Get(MainIsolate);
 
+//                    PLog(Warning, "InspectorChannel->OnMessage ---%s=", Message.c_str());
                     v8::Local<v8::Value > Args[] = { FV8Utils::V8String(MainIsolate, Message.c_str()) };
 
                     v8::TryCatch TryCatch(MainIsolate);
@@ -784,6 +789,7 @@ namespace puerts
         if (InspectorChannel)
         {
             v8::String::Utf8Value utf8(Isolate, Info[0]);
+//            PLog(Warning, "DispatchProtocolMessage %s", *utf8);
             InspectorChannel->DispatchProtocolMessage(*utf8);
         }
 #endif // !WITH_QUICKJS
