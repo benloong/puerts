@@ -12,6 +12,10 @@ namespace Puerts.UnitTest
     public class ArrayBufferClass
     {
         public ArrayBuffer AB;
+        public delegate void MessageHandler(ArrayBuffer data);
+        public delegate void EventHandler(string reason);
+
+        public event MessageHandler OnMessage;
 
         public ArrayBufferClass()
         {
@@ -31,6 +35,11 @@ namespace Puerts.UnitTest
         public ArrayBuffer GetMe(ArrayBuffer ab)
         {
             return ab;
+        }
+
+        public void Invoke()
+        {
+            OnMessage?.Invoke(new ArrayBuffer(new byte[] { 1, 2, 3, 4 }));
         }
     }
     
@@ -149,5 +158,24 @@ namespace Puerts.UnitTest
             Assert.AreEqual(2, ret.AB.Bytes[1]);
         }
 
+        [Test]
+        public void Test7()
+        {
+            var jsEnv = new JsEnv(new TxtLoader());
+            jsEnv.UsingAction<ArrayBuffer>();
+            ArrayBufferClass ret = jsEnv.Eval<ArrayBufferClass>(@"
+                const CS = require('csharp');
+                let obj = new CS.Puerts.UnitTest.ArrayBufferClass();
+                
+                obj.add_OnMessage(function(data){
+                    obj.AB = data;
+                }); 
+                obj;
+            ");
+            ret.Invoke();
+            jsEnv.Dispose();
+
+            Assert.AreEqual(3, 4);
+        }
     }
 }
